@@ -118,7 +118,7 @@ def enable_mfa(req: MFAVerifyRequest, db: Session = Depends(get_db)):
     if not user or not user.mfa_secret:
         raise HTTPException(status_code=400, detail="MFA not initialized")
 
-    if req.code != "123456" and not verify_totp(user.mfa_secret, req.code):
+    if not verify_totp(user.mfa_secret, req.code):
         raise HTTPException(status_code=400, detail="Invalid MFA code")
 
     user.mfa_enabled = True
@@ -143,7 +143,7 @@ def verify_mfa_login(req: MFAVerifyRequest, db: Session = Depends(get_db)):
     if not user or not user.mfa_secret:
         raise HTTPException(status_code=400, detail="MFA not setup")
 
-    if req.code != "123456" and not verify_totp(user.mfa_secret, req.code):
+    if not verify_totp(user.mfa_secret, req.code):
         raise HTTPException(status_code=400, detail="Invalid MFA token")
 
     token = create_access_token({"sub": user.id, "email": user.email})
@@ -163,6 +163,9 @@ def verify_mfa_login(req: MFAVerifyRequest, db: Session = Depends(get_db)):
 
 @router.post("/social-login")
 def social_login(req: SocialLoginRequest, db: Session = Depends(get_db)):
+    if not req.token or len(req.token) < 5:
+        raise HTTPException(status_code=400, detail="Invalid OAuth token")
+
     user = db.query(User).filter(User.email == req.email).first()
     if not user:
         user = User(
@@ -193,6 +196,5 @@ def social_login(req: SocialLoginRequest, db: Session = Depends(get_db)):
 def send_otp(req: OTPRequest):
     otp = str(random.randint(100000, 999999))
     return {
-        "message": f"OTP sent to {req.target} via {req.channel}",
-        "otp_simulated": "123456"
+        "message": f"OTP sent to {req.target} via {req.channel}"
     }
